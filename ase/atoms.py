@@ -1150,6 +1150,41 @@ class Atoms(object):
         positions -= com  # translate center of mass to origin
         return np.cross(positions, self.get_momenta()).sum(0)
 
+    def mirror(self,norm,offset=(0,0,0),subset=None):
+        """Mirror atoms over a plane based on a given normal vector and offset.
+        
+        Parameters:
+
+        norm:
+            Vector normal to the plane. Should be given as a three element
+            list or numpy array.
+
+        offset = (0,0,0):
+            Offset vector for the plane.
+
+        subset = None:
+            List of indices meant to indicate that only a subset of atoms are
+            desired to be mirrored.
+        """
+
+        # Variables
+        posList = self.get_positions()
+        unitVec = norm/np.linalg.norm(norm)
+        offset = np.asarray(offset)
+
+        # Set list of atom indices
+        if (subset == None):
+            idxList = range(len(posList))
+
+        # Calculate new positions
+        for idx,pos in enumerate(posList):
+            offset2atom = pos-offset
+            plane2atom = np.dot(offset2atom,unitVec)
+            posList[idx] -= 2*plane2atom*unitVec
+
+        # Set new positions
+        self.set_positions(posList)
+
     def rotate(self, a, v=None, center=(0, 0, 0), rotate_cell=False):
         """Rotate atoms based on a vector and an angle, or two vectors.
 
