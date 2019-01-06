@@ -48,7 +48,7 @@ class Dftb(FileIOCalculator):
     else:
         command = 'dftb+ > PREFIX.out'
 
-    implemented_properties = ['energy', 'forces', 'charges', 'stress']
+    implemented_properties = ['energy', 'forces', 'charges', 'stress', 'dipole']
 
     def __init__(self, restart=None, ignore_bad_restart_file=False,
                  label='dftb', atoms=None, kpts=None,
@@ -137,7 +137,7 @@ class Dftb(FileIOCalculator):
             initkey = 'Hamiltonian_KPointsAndWeights'
             mp_mesh = None
             offsets = None
- 
+
             if isinstance(self.kpts, dict):
                 if 'path' in self.kpts:
                     # kpts is path in Brillouin zone
@@ -304,6 +304,10 @@ class Dftb(FileIOCalculator):
         self.results['forces'] = forces
         self.mmpositions = None
 
+        # Read dipole
+        dipole = self.read_dipole()
+        self.results['dipole'] = dipole
+
         # stress stuff begins
         sstring = 'stress'
         have_stress = False
@@ -325,13 +329,56 @@ class Dftb(FileIOCalculator):
         fermi_levels = self.read_fermi_levels()
         if fermi_levels is not None:
             self.results['fermi_levels'] = fermi_levels
-        
+
         eigenvalues = self.read_eigenvalues()
         if eigenvalues is not None:
             self.results['eigenvalues'] = eigenvalues
 
         # calculation was carried out with atoms written in write_input
         os.remove(os.path.join(self.directory, 'results.tag'))
+
+    def read_dipole(self):
+        """Read dipole from dftb output file (detailed.out)."""
+
+        # Variables
+        debye_switch = False
+        dipole_au = []
+        dipole_debye = []
+
+        # Read output file
+        infile = open(os.path.join(self.directory, 'detailed.out'), 'r')
+        lines = infile.readlines()
+        infile.close()
+
+        # Read dipole line
+        for iline,line in enumerate(lines):
+            dstring = 'Dipole'
+
+            # Format line
+            line = line.strip().split()
+
+            # Empty lines
+            if (len(line) == 0):
+                continue
+
+            if (line[0] == 'Dipole'):
+                # Get au dipole moment
+                if (debye_switch == False):
+                    dipole_au = [float(val) for val in line[2:-1]]
+                    debye_switch = True
+                # Get Debye dipole moment
+                else:
+                    dipole_debye = [float(val) for val in line[2:-1]]
+
+        return np.asarray(dipole_au)
+
+    def get_dipole_moment(self,atoms):
+        """ Get the dipole moment of the structure. """
+
+        if 'dipole' in self.results:
+            return self.results['dipole']
+        else:
+            return None
 
     def read_forces(self):
         """Read Forces from dftb output file (results.tag)."""
@@ -406,7 +453,7 @@ class Dftb(FileIOCalculator):
         else:
             return None
 
-        # Take into account that the last row may lack 
+        # Take into account that the last row may lack
         # columns if nkpt * nspin * nband % ncol != 0
         nrow = int(np.ceil(nkpt * nspin * nband * 1. / ncol))
         index_eig_end = index_eig_begin + nrow
@@ -439,8 +486,8 @@ class Dftb(FileIOCalculator):
         for word in words:
             e = float(word)
             if abs(e) > 1e-8:
-                # Without spin polarization, one of the Fermi 
-                # levels is equal to 0.000000000000000E+000    
+                # Without spin polarization, one of the Fermi
+                # levels is equal to 0.000000000000000E+000
                 fermi_levels.append(e)
 
         return np.array(fermi_levels) * Hartree
@@ -451,7 +498,7 @@ class Dftb(FileIOCalculator):
     def get_number_of_spins(self):
         return self.nspin
 
-    def get_eigenvalues(self, kpt=0, spin=0): 
+    def get_eigenvalues(self, kpt=0, spin=0):
         return self.results['eigenvalues'][spin][kpt].copy()
 
     def get_fermi_levels(self):
