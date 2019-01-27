@@ -52,7 +52,7 @@ class Dftb(FileIOCalculator):
 
     def __init__(self, restart=None, ignore_bad_restart_file=False,
                  label='dftb', atoms=None, kpts=None,
-                 run_manyDftb_steps=False,
+                 run_manyDftb_steps=False, raw_input='',
                  **kwargs):
         """Construct a DFTB+ calculator.
 
@@ -116,6 +116,7 @@ class Dftb(FileIOCalculator):
         self.atoms = None
         self.atoms_input = None
         self.outfilename = 'dftb.out'
+        self.raw_input = raw_input
 
         FileIOCalculator.__init__(self, restart, ignore_bad_restart_file,
                                   label, atoms,
@@ -255,6 +256,9 @@ class Dftb(FileIOCalculator):
         outfile.write('ParserOptions { \n')
         outfile.write('   IgnoreUnprocessedNodes = Yes  \n')
         outfile.write('} \n')
+
+        # Write raw input
+        outfile.write(self.raw_input)
 
         outfile.close()
 
